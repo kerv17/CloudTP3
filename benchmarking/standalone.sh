@@ -1,0 +1,3 @@
+sysbench --table-size=1000000 --db-driver=mysql --mysql-user=root --mysql-password=root --mysql-db=sakila --threads=1 --rand-type=uniform /usr/share/sysbench/oltp_read_only.lua prepare
+sysbench --table-size=1000000 --db-driver=mysql --mysql-user=root --mysql-password=root --mysql-db=sakila --threads=1 --rand-type=uniform /usr/share/sysbench/oltp_read_only.lua run
+sysbench --table-size=1000000 --db-driver=mysql --mysql-user=root --mysql-password=root --mysql-db=sakila --threads=1 --rand-type=uniform /usr/share/sysbench/oltp_read_only.lua cleanup

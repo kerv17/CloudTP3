@@ -51,9 +51,9 @@ resource "aws_security_group" "security_gp" {
   vpc_id = data.aws_vpc.default.id
 
   ingress {
-    from_port        = 0
-    to_port          = 0
-    protocol         = "-1"
+    from_port        = 22
+    to_port          = 22
+    protocol         = "tcp"
     cidr_blocks      = ["0.0.0.0/0"]
     ipv6_cidr_blocks = ["::/0"]
   }
@@ -84,57 +84,7 @@ resource "aws_instance" "standalone" {
   }
 }
 
-resource "aws_instance" "cluster-master" {
-  ami                    = var.ami_id
-  instance_type          = "t2.micro"
-  vpc_security_group_ids = [aws_security_group.security_gp.id]
-  availability_zone      = var.aws_zone
-  key_name               = var.key_name
-  tags = {
-    "Name" = "Cluster-master"
-  }
-}
-
-resource "aws_instance" "cluster-slave-1" {
-  ami                    = var.ami_id
-  instance_type          = "t2.micro"
-  vpc_security_group_ids = [aws_security_group.security_gp.id]
-  availability_zone      = var.aws_zone
-  key_name               = var.key_name
-  tags = {
-    "Name" = "slave-1"
-  }
-}
-
-resource "aws_instance" "cluster-slave-2" {
-  ami                    = var.ami_id
-  instance_type          = "t2.micro"
-  vpc_security_group_ids = [aws_security_group.security_gp.id]
-  availability_zone      = var.aws_zone
-  key_name               = var.key_name
-  tags = {
-    "Name" = "slave-2"
-  }
-}
-
-resource "aws_instance" "cluster-slave-3" {
-  ami                    = var.ami_id
-  instance_type          = "t2.micro"
-  vpc_security_group_ids = [aws_security_group.security_gp.id]
-  availability_zone      = var.aws_zone
-  key_name               = var.key_name
-  tags = {
-    "Name" = "slave-3"
-  }
-}
-
-resource "aws_instance" "proxy" {
-  ami                    = var.ami_id
-  instance_type          = "t2.large"
-  vpc_security_group_ids = [aws_security_group.security_gp.id]
-  availability_zone      = var.aws_zone
-  key_name               = var.key_name
-  tags = {
-    "Name" = "proxy"
-  }
+output "standalone_dns" {
+  description = "The DNS of the standalone instance"
+  value       = aws_instance.standalone.public_dns
 }
