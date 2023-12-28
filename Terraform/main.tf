@@ -88,3 +88,41 @@ output "standalone_dns" {
   description = "The DNS of the standalone instance"
   value       = aws_instance.standalone.public_dns
 }
+
+resource "aws_instance" "cluster_master" {
+  ami                    = var.ami_id
+  instance_type          = "t2.micro"
+  vpc_security_group_ids = [aws_security_group.security_gp.id]
+  availability_zone      = var.aws_zone
+  user_data              = file("master.sh")
+  key_name               = var.key_name
+
+  tags = {
+    "Name" = "Cluster Master"
+  }
+}
+
+output "cluster_master_dns" {
+  description = "The DNS of the cluster master instance"
+  value       = aws_instance.cluster_master.public_dns
+}
+
+resource "aws_instance" "cluster_slave" {
+  ami                    = var.ami_id
+  instance_type          = "t2.micro"
+  vpc_security_group_ids = [aws_security_group.security_gp.id]
+  availability_zone      = var.aws_zone
+  user_data              = file("slave.sh")
+  key_name               = var.key_name
+  count                  = 3
+
+  tags = {
+    "Name" = "Cluster Slave ${count.index}"
+  }
+}
+
+output "cluster_slave_dns" {
+  description = "The DNS of the cluster slave instance"
+  value       = aws_instance.cluster_slave.*.public_dns
+}
+
