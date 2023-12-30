@@ -3,3 +3,6 @@
 */myenv/*
 */.terraform*
 *.tfstate*
+*.pem
+*.ppk
+Terraform/ips.sh

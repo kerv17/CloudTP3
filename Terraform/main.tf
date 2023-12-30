@@ -27,15 +27,21 @@ variable "token" {
 
 variable "key_name" {
   description = "value of the key name"
-  default = "vockey"
+  default = "vockey2"
 }
 
+variable "ips_key_name" {
+  description = "value of the key name"
+  default = "vockey2.pem"
+  
+}
 provider "aws" {
   region = var.aws_region
   access_key = var.access_key
   secret_key = var.secret_key
   token = var.token
 }
+
 
 terraform {
   required_providers {
@@ -84,6 +90,7 @@ resource "aws_instance" "standalone" {
   }
 }
 
+
 output "standalone_dns" {
   description = "The DNS of the standalone instance"
   value       = aws_instance.standalone.public_dns
@@ -99,6 +106,18 @@ resource "aws_instance" "cluster_master" {
 
   tags = {
     "Name" = "Cluster Master"
+  }
+
+  provisioner "file" {
+    source = "./ips.sh"
+    destination = "/tmp/ips.sh"
+
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      private_key = file(var.ips_key_name)
+      host        = self.public_ip
+    }
   }
 }
 
@@ -118,6 +137,18 @@ resource "aws_instance" "cluster_slave" {
 
   tags = {
     "Name" = "Cluster Slave ${count.index}"
+  }
+
+  provisioner "file" {
+    source = "./ips.sh"
+    destination = "/tmp/ips.sh"
+
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      private_key = file(var.ips_key_name)
+      host        = self.public_ip
+    }
   }
 }
 
