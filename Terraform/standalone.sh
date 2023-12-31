@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# Pre-configure debconf to set MySQL root password
-export DEBIAN_FRONTEND=noninteractive
 
 # Set MySQL root password (replace 'your_password' with your desired password)
 MYSQL_ROOT_PASSWORD='root'
@@ -28,7 +26,8 @@ mysql -u root -p$MYSQL_ROOT_PASSWORD sakila < /tmp/sakila-db/sakila-schema.sql
 mysql -u root -p$MYSQL_ROOT_PASSWORD sakila < /tmp/sakila-db/sakila-data.sql
 
 # Install sysbench and git
-sudo apt-get -y install sysbench git
+cd /home/ubuntu
+sudo apt-get -y install sysbench
 git clone https://github.com/kerv17/CloudTP3.git
 
 #Allow all users to execute every script in benchmarking folder

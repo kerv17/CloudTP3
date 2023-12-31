@@ -1,0 +1,1 @@
+ssh -o StrictHostKeyChecking=no -i Terraform/vockey2.pem ubuntu@ec2-3-85-213-180.compute-1.amazonaws.com 'ls -l'

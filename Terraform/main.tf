@@ -42,6 +42,9 @@ provider "aws" {
   token = var.token
 }
 
+data "aws_vpc" "default" {
+  default = true
+}
 
 terraform {
   required_providers {
@@ -51,6 +54,86 @@ terraform {
     }
   }
   required_version = ">= 1.2.0"
+}
+
+//////////////////////////////////////// SECURITY GROUPS ////////////////////////////////////////
+resource "aws_security_group" "gatekeeper_security_gp" {
+  vpc_id = data.aws_vpc.default.id
+
+  ingress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+    security_groups = [aws_security_group.trusted_host_security_gp.id]
+  }
+  
+}
+
+resource "aws_security_group" "trusted_host_security_gp" {
+  vpc_id = data.aws_vpc.default.id
+
+# Allow ingress traffic from the gatekeeper server
+  ingress {
+    from_port        = 22
+    to_port          = 22
+    protocol         = "tcp"
+    security_groups  = [aws_security_group.gatekeeper_security_gp.id]
+  }
+
+  ingress {
+    from_port        = 80
+    to_port          = 80
+    protocol         = "tcp"
+    security_groups  = [aws_security_group.gatekeeper_security_gp.id]
+  }
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+    security_groups = [aws_security_group.proxy_security_gp.id]
+  }
+  
+}
+
+resource "aws_security_group" "proxy_security_gp" {
+  vpc_id = data.aws_vpc.default.id
+
+  ingress {
+    from_port        = 22
+    to_port          = 22
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
+  ingress {
+    from_port        = 80
+    to_port          = 80
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+    security_groups = [aws_security_group.mysql_security_gp.id]
+  }
+  
 }
 
 resource "aws_security_group" "security_gp" {
@@ -73,16 +156,34 @@ resource "aws_security_group" "security_gp" {
   }
 }
 
-data "aws_vpc" "default" {
-  default = true
+resource "aws_security_group" "mysql_security_gp" {
+  vpc_id = data.aws_vpc.default.id
+
+  ingress {
+    from_port        = 3306
+    to_port          = 3306
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+  
 }
 
+//////////////////////////////////////// INSTANCES ////////////////////////////////////////
 resource "aws_instance" "standalone" {
   ami                    = var.ami_id
   instance_type          = "t2.micro"
-  vpc_security_group_ids = [aws_security_group.security_gp.id]
+  vpc_security_group_ids = [aws_security_group.mysql_security_gp.id]
   availability_zone      = var.aws_zone
-  user_data              = file("standalone.sh")
+  user_data              = file("./standalone.sh")
   key_name               = var.key_name
 
   tags = {
@@ -90,66 +191,85 @@ resource "aws_instance" "standalone" {
   }
 }
 
-
-output "standalone_dns" {
-  description = "The DNS of the standalone instance"
-  value       = aws_instance.standalone.public_dns
-}
-
 resource "aws_instance" "cluster_master" {
   ami                    = var.ami_id
   instance_type          = "t2.micro"
-  vpc_security_group_ids = [aws_security_group.security_gp.id]
+  vpc_security_group_ids = [aws_security_group.mysql_security_gp.id]
   availability_zone      = var.aws_zone
-  user_data              = file("master.sh")
+  user_data              = file("./master.sh")
   key_name               = var.key_name
 
   tags = {
     "Name" = "Cluster Master"
   }
-
-  provisioner "file" {
-    source = "./ips.sh"
-    destination = "/tmp/ips.sh"
-
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      private_key = file(var.ips_key_name)
-      host        = self.public_ip
-    }
-  }
-}
-
-output "cluster_master_dns" {
-  description = "The DNS of the cluster master instance"
-  value       = aws_instance.cluster_master.public_dns
 }
 
 resource "aws_instance" "cluster_slave" {
   ami                    = var.ami_id
   instance_type          = "t2.micro"
-  vpc_security_group_ids = [aws_security_group.security_gp.id]
+  vpc_security_group_ids = [aws_security_group.mysql_security_gp.id]
   availability_zone      = var.aws_zone
-  user_data              = file("slave.sh")
+  user_data              = file("./slave.sh")
   key_name               = var.key_name
   count                  = 3
 
   tags = {
     "Name" = "Cluster Slave ${count.index}"
   }
+}
 
-  provisioner "file" {
-    source = "./ips.sh"
-    destination = "/tmp/ips.sh"
+resource "aws_instance" "proxy" {
+  ami                    = var.ami_id
+  instance_type          = "t2.large"
+  vpc_security_group_ids = [aws_security_group.mysql_security_gp.id]
+  availability_zone      = var.aws_zone
+  user_data              = file("./proxy.sh")
+  key_name               = var.key_name
 
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      private_key = file(var.ips_key_name)
-      host        = self.public_ip
-    }
+  tags = {
+    "Name" = "Proxy"
   }
+}
+
+
+resource "aws_instance" "gatekeeper" {
+  ami                     = "ami-0fc5d935ebf8bc3bc"
+  instance_type           = "t2.large"
+  vpc_security_group_ids  = [aws_security_group.gatekeeper_security_gp.id]
+  availability_zone       = var.aws_zone
+  user_data               = file("./gatekeeper.sh")
+  key_name                = var.key_name
+
+  tags = {
+    Name = "Gatekeeper Server"
+  }
+}
+
+
+resource "aws_instance" "trusted_host" {
+  ami                     = "ami-0fc5d935ebf8bc3bc"
+  instance_type           = "t2.large"
+  vpc_security_group_ids  = [aws_security_group.gatekeeper_security_gp.id]
+  availability_zone       = var.aws_zone
+  user_data               = file("./trusted_host.sh")
+  key_name                = var.key_name
+
+  tags = {
+    Name = "Gatekeeper Server"
+  }
+}
+
+//////////////////////////////////////// OUTPUTS ////////////////////////////////////////
+
+
+
+output "standalone_dns" {
+  description = "The DNS of the standalone instance"
+  value       = aws_instance.standalone.public_dns
+}
+output "cluster_master_dns" {
+  description = "The DNS of the cluster master instance"
+  value       = aws_instance.cluster_master.public_dns 
 }
 
 output "cluster_slave_dns" {
@@ -157,3 +277,17 @@ output "cluster_slave_dns" {
   value       = aws_instance.cluster_slave.*.public_dns
 }
 
+output "proxy_dns" {
+  description = "The DNS of the proxy instance"
+  value       = aws_instance.proxy.public_dns
+}
+
+output "gatekeeper_dns" {
+  description = "The DNS of the gatekeeper instance"
+  value       = aws_instance.gatekeeper.public_dns
+  
+}
+output "trusted_host_dns" {
+  description = "The DNS of the trusted host instance"
+  value       = aws_instance.trusted_host.public_dns
+}

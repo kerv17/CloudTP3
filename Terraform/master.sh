@@ -1,18 +1,20 @@
+#!/bin/bash
 export DEBIAN_FRONTEND=noninteractive
 export PATH=/opt/mysqlcluster/home/mysqlc/bin:$PATH
 
 sudo apt update && sudo apt install libaio1 libmecab2 git libncurses5 dos2unix sysbench expect wget -y
 
-sudo apt-get -y install sysbench git
-git clone https://github.com/kerv17/CloudTP3.git
-sudo chmod +x /home/ubuntu/CloudTP3/benchmarking/*.sh
+sudo mkdir -p /opt/mysqlcluster/home
+cd /opt/mysqlcluster/home
 
 sudo wget http://dev.mysql.com/get/Downloads/MySQL-Cluster-7.2/mysql-cluster-gpl-7.2.1-linux2.6-x86_64.tar.gz
-sudo tar xvf mysql-cluster-gpl-7.2.1-linux2.6-x86_64.tar.gz
+sudo tar xvf mysql-cluster-gpl-7.2.1-linux2.6-x86_64.tar.gz >/dev/null 2>&1 #Hush the output
 sudo ln -s mysql-cluster-gpl-7.2.1-linux2.6-x86_64 mysqlc
 
 echo 'export MYSQLC_HOME=/opt/mysqlcluster/home/mysqlc' | sudo tee /etc/profile.d/mysqlc.sh
 echo 'export PATH=$MYSQLC_HOME/bin:$PATH' | sudo tee -a /etc/profile.d/mysqlc.sh
+
+source /etc/profile.d/mysqlc.sh
 
 sudo mkdir -p /opt/mysqlcluster/deploy
 cd /opt/mysqlcluster/deploy
@@ -63,12 +65,14 @@ echo "nodeid=50" | sudo tee -a $CONFIG_FILE > /dev/null
 cd /opt/mysqlcluster/home/mysqlc
 sudo scripts/mysql_install_db --no-defaults --datadir=/opt/mysqlcluster/deploy/mysqld_data
 sudo chown -R root /opt/mysqlcluster/home/mysqlc
-sudo /opt/mysqlcluster/home/mysqlc/bin/ndbd --initial --config-file=/opt/mysqlcluster/deploy/conf/
+sudo /opt/mysqlcluster/home/mysqlc/bin/ndb_mgmd -f /opt/mysqlcluster/deploy/conf/config.ini --initial --configdir=/opt/mysqlcluster/deploy/conf/ --ndb-nodeid=1
+sleep 120
+sudo /opt/mysqlcluster/home/mysqlc/bin/ndb_mgm -e show
+
+sudo mkdir -p /opt/mysqlcluster/deploy/mysqld_data
+sudo chown -R root:root /opt/mysqlcluster/deploy/mysqld_data
 sudo /opt/mysqlcluster/home/mysqlc/bin/mysqld --defaults-file=/opt/mysqlcluster/deploy/conf/my.cnf --user=root &
 
-while ! mysqladmin ping --silent; do
-    sleep 1
-done
 
 cd /home/ubuntu
 wget https://downloads.mysql.com/docs/sakila-db.tar.gz
@@ -80,3 +84,9 @@ mysql -u root sakila < /tmp/sakila-db/sakila-schema.sql
 mysql -u root sakila < /tmp/sakila-db/sakila-data.sql
 
 
+# Install sysbench and git
+cd /home/ubuntu
+git clone https://github.com/kerv17/CloudTP3.git
+
+#Allow all users to execute every script in benchmarking folder
+sudo chmod +x /home/ubuntu/CloudTP3/benchmarking/*.sh
