@@ -80,24 +80,3 @@ git clone https://github.com/kerv17/CloudTP3.git
 #Allow all users to execute every script in benchmarking folder
 sudo chmod +x /home/ubuntu/CloudTP3/benchmarking/*.sh
 
-/opt/mysqlcluster/home/mysqlc/bin/mysql -u root -e "GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;"
-/opt/mysqlcluster/home/mysqlc/bin/mysql -u root -e "CREATE DATABASE prod;"
-/opt/mysqlcluster/home/mysqlc/bin/mysql -u root -e "
-    USE prod;
-    CREATE TABLE direct_table (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        added_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );"
-
-/opt/mysqlcluster/home/mysqlc/bin/mysql -u root -e "
-    USE prod;
-    CREATE TABLE random_table (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        added_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );"
-/opt/mysqlcluster/home/mysqlc/bin/mysql -u root -e "
-    USE prod;
-    CREATE TABLE customized_table (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        added_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );"

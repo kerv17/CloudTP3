@@ -10,55 +10,51 @@ task_name = os.environ.get("INSTANCE_TASK_NAME")
 self_dns = os.environ.get("SELF_DNS")
 if not target_dns:
     raise ValueError("Trust Host environment variable not set")
+print(f"Target DNS is: {target_dns}")
 
-server = SSHTunnelForwarder(
-    (target_dns, 22),  # Remote SSH server
-    ssh_username="ubuntu",
-    ssh_pkey="/etc/gatekeeper/vockey.pem",
-    remote_bind_address=(target_dns, 80),  # Trusted Host server port
-    local_bind_address=("127.0.0.1", 80),
-)
-
-try:
-    server.start()  # Start SSH tunnel
-    app.logger.warning("Tunnel connected")
-except Exception as e:
-    app.logger.error(f"Error establishing SSH Tunnel: {e}")
-    raise
 
 @app.route("/health_check", methods=["GET"])
 def health_check():
-    return f"<h1>{task_name}@{self_dns} running</h1>"
+    #Make health check request to target
+    try:
+        dns = f"http://{target_dns}/health_check"
+        response = requests.get(dns)
+    except Exception as e:
+        response = "Error making health check request: {e}"
+    return f"<h1>Gatekeeper@{self_dns} running</h1>\n<p>Target response: {response}</p>"
 
-@app.route("direct", methods=["POST"])
+@app.route("/direct", methods=["POST"])
 def direct():
+    app.logger.warning("Received direct request")
     try:
-        target_dns = f"http://{target_dns}/direct"
-        response = requests.post(target_dns, json=request.json)
-        return response.json()
+        target_url = f"http://{target_dns}/direct"
+        response = requests.post(target_url, json=request.get_json())
+        return jsonify(response.json()), response.status_code
     except Exception as e:
-        app.logger.error(f"Error making direct request: {e}")
-        return jsonify({"error": "Internal server error"}), 500
+        app.logger.error(f"Error in /direct: {e}")
+        return jsonify({"error": str(e)}), 500
 
-@app.route("random", methods=["POST"])
+@app.route("/random", methods=["POST"])
 def random():
+    app.logger.warning("Received random request")
     try:
-        target_dns = f"http://{target_dns}/random"
-        response = requests.post(target_dns, json=request.json)
-        return response.json()
+        target_url = f"http://{target_dns}/random"
+        response = requests.post(target_url, json=request.get_json())
+        return jsonify(response.json()), response.status_code
     except Exception as e:
-        app.logger.error(f"Error making random request: {e}")
-        return jsonify({"error": "Internal server error"}), 500
+        app.logger.error(f"Error in /random: {e}")
+        return jsonify({"error": str(e)}), 500
     
-@app.route("customized", methods=["POST"])
+@app.route("/customized", methods=["POST"])
 def customized():
+    app.logger.warning("Received customized request")
     try:
-        target_dns = f"http://{target_dns}/customized"
-        response = requests.post(target_dns, json=request.json)
-        return response.json()
+        target_url = f"http://{target_dns}/customized"
+        response = requests.post(target_url, json=request.get_json())
+        return jsonify(response.json()), response.status_code
     except Exception as e:
-        app.logger.error(f"Error making customized request: {e}")
-        return jsonify({"error": "Internal server error"}), 500
+        app.logger.error(f"Error in /customized: {e}")
+        return jsonify({"error": str(e)}), 500
     
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=80)

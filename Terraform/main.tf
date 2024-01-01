@@ -77,35 +77,7 @@ resource "aws_security_group" "gatekeeper_security_gp" {
   
 }
 
-resource "aws_security_group" "trusted_host_security_gp" {
-  vpc_id = data.aws_vpc.default.id
 
-# Allow ingress traffic from the gatekeeper server
-  ingress {
-    from_port        = 22
-    to_port          = 22
-    protocol         = "tcp"
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
-  }
-
-  ingress {
-    from_port        = 80
-    to_port          = 80
-    protocol         = "tcp"
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
-    security_groups = [aws_security_group.gatekeeper_security_gp.id]
-  }
-  egress {
-    from_port        = 0
-    to_port          = 0
-    protocol         = "-1"
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
-  }
-  
-}
 
 resource "aws_security_group" "proxy_security_gp" {
   vpc_id = data.aws_vpc.default.id
@@ -124,7 +96,7 @@ resource "aws_security_group" "proxy_security_gp" {
     protocol         = "tcp"
     cidr_blocks      = ["0.0.0.0/0"]
     ipv6_cidr_blocks = ["::/0"]
-    security_groups = [aws_security_group.trusted_host_security_gp.id]
+    security_groups = [aws_security_group.gatekeeper_security_gp.id]
   }
 
   egress {
@@ -147,6 +119,14 @@ resource "aws_security_group" "security_gp" {
     cidr_blocks      = ["0.0.0.0/0"]
     ipv6_cidr_blocks = ["::/0"]
   }
+  ingress {
+    from_port        = 80
+    to_port          = 80
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+  
 
   egress {
     from_port        = 0
@@ -166,6 +146,8 @@ resource "aws_security_group" "mysql_security_gp" {
     protocol         = "tcp"
     cidr_blocks      = ["0.0.0.0/0"]
     ipv6_cidr_blocks = ["::/0"]
+    security_groups = [aws_security_group.proxy_security_gp.id]
+    self            = true
   }
 
   ingress {
@@ -174,6 +156,7 @@ resource "aws_security_group" "mysql_security_gp" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"] # Consider restricting this to specific IPs/subnets for security
     ipv6_cidr_blocks = ["::/0"] # Optional for IPv6
+    self            = true
   }
 
   ingress {
@@ -262,7 +245,7 @@ resource "aws_instance" "cluster_slave" {
 resource "aws_instance" "proxy" {
   ami                    = var.ami_id
   instance_type          = "t2.large"
-  vpc_security_group_ids = [aws_security_group.mysql_security_gp.id]
+  vpc_security_group_ids = [aws_security_group.proxy_security_gp.id]
   availability_zone      = var.aws_zone
   user_data              = file("./proxy.sh")
   key_name               = var.key_name
@@ -271,31 +254,6 @@ resource "aws_instance" "proxy" {
     "Name" = "Proxy"
   }
 
-  provisioner "file" {
-    source      = "ips.sh"
-    destination = "/tmp/ips.sh"
-
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      private_key = file("vockey2.pem")
-      host        = self.public_ip
-    }
-  }
-}
-
-
-resource "aws_instance" "gatekeeper" {
-  ami                     = "ami-0fc5d935ebf8bc3bc"
-  instance_type           = "t2.large"
-  vpc_security_group_ids  = [aws_security_group.gatekeeper_security_gp.id]
-  availability_zone       = var.aws_zone
-  user_data               = file("./gatekeeper.sh")
-  key_name                = var.key_name
-
-  tags = {
-    Name = "Gatekeeper Server"
-  }
   provisioner "file" {
     source      = "ips.sh"
     destination = "/tmp/ips.sh"
@@ -322,18 +280,17 @@ resource "aws_instance" "gatekeeper" {
 }
 
 
-resource "aws_instance" "trusted_host" {
+resource "aws_instance" "gatekeeper" {
   ami                     = "ami-0fc5d935ebf8bc3bc"
   instance_type           = "t2.large"
-  vpc_security_group_ids  = [aws_security_group.gatekeeper_security_gp.id]
+  vpc_security_group_ids  = [aws_security_group.security_gp.id]
   availability_zone       = var.aws_zone
-  user_data               = file("./trusted_host.sh")
+  user_data               = file("./gatekeeper.sh")
   key_name                = var.key_name
 
   tags = {
     Name = "Gatekeeper Server"
   }
-
   provisioner "file" {
     source      = "ips.sh"
     destination = "/tmp/ips.sh"
@@ -386,8 +343,4 @@ output "gatekeeper_dns" {
   description = "The DNS of the gatekeeper instance"
   value       = aws_instance.gatekeeper.public_dns
   
-}
-output "trusted_host_dns" {
-  description = "The DNS of the trusted host instance"
-  value       = aws_instance.trusted_host.public_dns
 }

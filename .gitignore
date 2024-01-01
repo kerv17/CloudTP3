@@ -6,3 +6,4 @@
 *.pem
 *.ppk
 Terraform/ips.sh
+*.log
