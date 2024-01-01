@@ -59,7 +59,6 @@ terraform {
 //////////////////////////////////////// SECURITY GROUPS ////////////////////////////////////////
 resource "aws_security_group" "gatekeeper_security_gp" {
   vpc_id = data.aws_vpc.default.id
-
   ingress {
     from_port        = 0
     to_port          = 0
@@ -73,7 +72,7 @@ resource "aws_security_group" "gatekeeper_security_gp" {
     protocol         = "-1"
     cidr_blocks      = ["0.0.0.0/0"]
     ipv6_cidr_blocks = ["::/0"]
-    security_groups = [aws_security_group.trusted_host_security_gp.id]
+    
   }
   
 }
@@ -86,14 +85,17 @@ resource "aws_security_group" "trusted_host_security_gp" {
     from_port        = 22
     to_port          = 22
     protocol         = "tcp"
-    security_groups  = [aws_security_group.gatekeeper_security_gp.id]
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
   }
 
   ingress {
     from_port        = 80
     to_port          = 80
     protocol         = "tcp"
-    security_groups  = [aws_security_group.gatekeeper_security_gp.id]
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+    security_groups = [aws_security_group.gatekeeper_security_gp.id]
   }
   egress {
     from_port        = 0
@@ -101,7 +103,6 @@ resource "aws_security_group" "trusted_host_security_gp" {
     protocol         = "-1"
     cidr_blocks      = ["0.0.0.0/0"]
     ipv6_cidr_blocks = ["::/0"]
-    security_groups = [aws_security_group.proxy_security_gp.id]
   }
   
 }
@@ -123,6 +124,7 @@ resource "aws_security_group" "proxy_security_gp" {
     protocol         = "tcp"
     cidr_blocks      = ["0.0.0.0/0"]
     ipv6_cidr_blocks = ["::/0"]
+    security_groups = [aws_security_group.trusted_host_security_gp.id]
   }
 
   egress {
@@ -131,7 +133,6 @@ resource "aws_security_group" "proxy_security_gp" {
     protocol         = "-1"
     cidr_blocks      = ["0.0.0.0/0"]
     ipv6_cidr_blocks = ["::/0"]
-    security_groups = [aws_security_group.mysql_security_gp.id]
   }
   
 }
@@ -162,6 +163,22 @@ resource "aws_security_group" "mysql_security_gp" {
   ingress {
     from_port        = 3306
     to_port          = 3306
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
+  ingress {
+    from_port   = 1186
+    to_port     = 1186
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] # Consider restricting this to specific IPs/subnets for security
+    ipv6_cidr_blocks = ["::/0"] # Optional for IPv6
+  }
+
+  ingress {
+    from_port        = 22
+    to_port          = 22
     protocol         = "tcp"
     cidr_blocks      = ["0.0.0.0/0"]
     ipv6_cidr_blocks = ["::/0"]
@@ -202,6 +219,18 @@ resource "aws_instance" "cluster_master" {
   tags = {
     "Name" = "Cluster Master"
   }
+
+  provisioner "file" {
+    source      = "ips.sh"
+    destination = "/tmp/ips.sh"
+
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      private_key = file("vockey2.pem")
+      host        = self.public_ip
+    }
+  }
 }
 
 resource "aws_instance" "cluster_slave" {
@@ -216,6 +245,18 @@ resource "aws_instance" "cluster_slave" {
   tags = {
     "Name" = "Cluster Slave ${count.index}"
   }
+
+  provisioner "file" {
+    source      = "ips.sh"
+    destination = "/tmp/ips.sh"
+
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      private_key = file("vockey2.pem")
+      host        = self.public_ip
+    }
+  }
 }
 
 resource "aws_instance" "proxy" {
@@ -228,6 +269,18 @@ resource "aws_instance" "proxy" {
 
   tags = {
     "Name" = "Proxy"
+  }
+
+  provisioner "file" {
+    source      = "ips.sh"
+    destination = "/tmp/ips.sh"
+
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      private_key = file("vockey2.pem")
+      host        = self.public_ip
+    }
   }
 }
 
@@ -243,6 +296,29 @@ resource "aws_instance" "gatekeeper" {
   tags = {
     Name = "Gatekeeper Server"
   }
+  provisioner "file" {
+    source      = "ips.sh"
+    destination = "/tmp/ips.sh"
+
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      private_key = file("vockey2.pem")
+      host        = self.public_ip
+    }
+  }
+
+  provisioner "file" {
+    source      = "vockey2.pem"
+    destination = "/home/ubuntu/vockey2.pem"
+
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      private_key = file("vockey2.pem")
+      host        = self.public_ip
+    }
+  }
 }
 
 
@@ -256,6 +332,30 @@ resource "aws_instance" "trusted_host" {
 
   tags = {
     Name = "Gatekeeper Server"
+  }
+
+  provisioner "file" {
+    source      = "ips.sh"
+    destination = "/tmp/ips.sh"
+
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      private_key = file("vockey2.pem")
+      host        = self.public_ip
+    }
+  }
+
+  provisioner "file" {
+    source      = "vockey2.pem"
+    destination = "/home/ubuntu/vockey2.pem"
+
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      private_key = file("vockey2.pem")
+      host        = self.public_ip
+    }
   }
 }
 

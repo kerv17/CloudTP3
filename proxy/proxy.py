@@ -16,6 +16,7 @@ slave_1 = os.environ.get("SLAVE_1_DNS", "")
 slave_2 = os.environ.get("SLAVE_2_DNS", "")
 slave_3 = os.environ.get("SLAVE_3_DNS", "")
 MASTER_SERVER = os.environ.get("MASTER_DNS", "")
+self_dns = os.environ.get("SELF_DNS")
 SLAVE_SERVERS = [slave_1, slave_2, slave_3]
 
 random_ssh_tunnel = None
@@ -44,8 +45,7 @@ def make_request(data, pickMethod:function):
             conn = pymysql.connect(host=tunnel.local_bind_host,
                                 port=tunnel.local_bind_port,
                                 user='root',
-                                passwd='root',
-                                db='sakila')
+                                db='prod')
             cur = conn.cursor()
             cur.execute(query)
             result = cur.fetchall()
@@ -55,6 +55,10 @@ def make_request(data, pickMethod:function):
     except Exception as e:
         print(e)
         return jsonify({"error": "Internal server error"}), 500
+
+@app.route("/health_check", methods=["GET"])
+def health_check():
+    return f"<h1>Proxy@{self_dns} running</h1>"
 
 
 def getMaster():

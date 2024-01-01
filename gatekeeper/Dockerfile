@@ -9,6 +9,6 @@ RUN pip install -r requirements.txt
 
 COPY gatekeeper.py proxy.py
 
-EXPOSE 5000
+EXPOSE 80
 
 CMD ["python3", "proxy.py"]

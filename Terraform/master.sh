@@ -33,7 +33,7 @@ source /tmp/ips.sh
 
 CONFIG_FILE="/opt/mysqlcluster/deploy/conf/config.ini"
 
-echo "[ndbd_default]" | sudo tee $CONFIG_FILE > /dev/null
+echo "[ndb_mgmd]" | sudo tee $CONFIG_FILE > /dev/null
 echo "hostname=$MASTER_DNS" | sudo tee -a $CONFIG_FILE > /dev/null
 echo "datadir=/opt/mysqlcluster/deploy/ndb_data" | sudo tee -a $CONFIG_FILE > /dev/null
 echo "nodeid=1" | sudo tee -a $CONFIG_FILE > /dev/null
@@ -73,20 +73,31 @@ sudo mkdir -p /opt/mysqlcluster/deploy/mysqld_data
 sudo chown -R root:root /opt/mysqlcluster/deploy/mysqld_data
 sudo /opt/mysqlcluster/home/mysqlc/bin/mysqld --defaults-file=/opt/mysqlcluster/deploy/conf/my.cnf --user=root &
 
-
-cd /home/ubuntu
-wget https://downloads.mysql.com/docs/sakila-db.tar.gz
-tar -xvzf sakila-db.tar.gz
-cp -r sakila-db /tmp/
-
-mysql -u root -e "CREATE DATABASE sakila;"
-mysql -u root sakila < /tmp/sakila-db/sakila-schema.sql
-mysql -u root sakila < /tmp/sakila-db/sakila-data.sql
-
-
 # Install sysbench and git
 cd /home/ubuntu
 git clone https://github.com/kerv17/CloudTP3.git
 
 #Allow all users to execute every script in benchmarking folder
 sudo chmod +x /home/ubuntu/CloudTP3/benchmarking/*.sh
+
+/opt/mysqlcluster/home/mysqlc/bin/mysql -u root -e "GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;"
+/opt/mysqlcluster/home/mysqlc/bin/mysql -u root -e "CREATE DATABASE prod;"
+/opt/mysqlcluster/home/mysqlc/bin/mysql -u root -e "
+    USE prod;
+    CREATE TABLE direct_table (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        added_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );"
+
+/opt/mysqlcluster/home/mysqlc/bin/mysql -u root -e "
+    USE prod;
+    CREATE TABLE random_table (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        added_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );"
+/opt/mysqlcluster/home/mysqlc/bin/mysql -u root -e "
+    USE prod;
+    CREATE TABLE customized_table (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        added_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );"
