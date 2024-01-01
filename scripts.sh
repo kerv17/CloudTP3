@@ -37,9 +37,10 @@ for i in "${DNS[@]}"
 do
     scp -o StrictHostKeyChecking=no -i vockey2.pem ips.sh ubuntu@$i:/tmp/ips.sh
 done
-
+echo "Waiting for instances to be ready (10m)"
 sleep 10m
 cd ..
+echo "Instances assumed ready, proceeding"
 #Log into the master node and run the master.sh script and write it to a log file
 ssh -o StrictHostKeyChecking=no -i Terraform/vockey2.pem ubuntu@$MASTER_DNS 'bash -s' < benchmarking/master.sh > master.log
 ssh -o StrictHostKeyChecking=no -i Terraform/vockey2.pem ubuntu@$STANDALONE_DNS 'bash -s' < benchmarking/standalone.sh > standalone.log
